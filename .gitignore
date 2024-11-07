@@ -1,5 +1,7 @@
-.venv/
+venv/
 analysisdataset.csv
 sample_regex.py
 images/
-dialogues_dataset_formatted_added_links.csv
+# dialogues_dataset_formatted_added_links.csv
+requirements.txt
+__pycache__/
