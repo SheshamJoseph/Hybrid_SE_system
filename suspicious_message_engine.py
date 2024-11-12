@@ -20,14 +20,18 @@ class SuspiciousMessageEngine:
         
     def _load_words_phrases(self):
         # Load suspicious words
+        print("Loading common words...")
         with open("common_suspicious_words.txt", 'r') as file:
             for word in file:
                 self.words.append(word.strip())
+        print("Loaded common words...")
                 
         # Load suspicious phrases
+        print("Loading common phrases...")
         with open("common_suspicious_phrases.txt", 'r') as file:
             for line in file:
-                self.phrases.append(line.strip())
+                self.phrases.append(line)
+        print("Loaded common words...")
                 
     def _initialize_rules(self):
         with ruleset("suspicious_message_detection"):
@@ -38,7 +42,9 @@ class SuspiciousMessageEngine:
                 c.s['is_suspicious'] = True  # Set flag when suspicious phrase is detected
             
             # Rule for detecting URLs
-            @when_all(m.text.matches(r'https?://[^\s]+') | m.text.matches(r'www\.[^\s]+') | m.text.matches(r'[^\s]+\.(com|org|net|io|gov|edu|info)'))
+            @when_all(m.text.matches(r'https?://[^\s]+') |
+                        m.text.matches(r'www\.[^\s]+') |
+                        m.text.matches(r'\b\w+\.(com|org|net|io|gov|edu|info|de|uk|co|us|ca|biz|tv|me|site|app|shop|xyz)\b'))
             def url_detected(c):
                 c.s['is_suspicious'] = True  # Set flag when URL is detected
             
@@ -50,11 +56,12 @@ class SuspiciousMessageEngine:
     def predict(self, message):
         # If `message` is a single string, process it as a single message
         if isinstance(message, str):
-            return self.predict_single_message(message)
+            result = self.predict_single_message(message)
+            return { message: result }
         
         # If `message` is a pandas Series, apply `predict_single_message` on each row
         elif isinstance(message, pd.Series):
-            return message.map(self.predict_single_message)
+            return { msg: self.predict_single_message(msg) for msg in message}
     
     def predict_single_message(self, message_text):
         # Use a dictionary to track the flag
