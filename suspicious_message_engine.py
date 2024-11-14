@@ -1,11 +1,7 @@
-from durable.lang import *
-from durable.engine import MessageNotHandledException
 import re
 import pandas as pd
 
 class SuspiciousMessageEngine:
-    _rules_initialized = False  # Class-level flag to track if rules have been initialized
-    
     def __init__(self):
         self.phrases = []
         self.words = []
@@ -13,66 +9,49 @@ class SuspiciousMessageEngine:
         # Load phrases and words
         self._load_words_phrases()
         
-        # Initialize rules only once across instances
-        if not SuspiciousMessageEngine._rules_initialized:
-            self._initialize_rules()
-            SuspiciousMessageEngine._rules_initialized = True
+        # Precompile regex patterns
+        self.phrases_pattern = re.compile(r'|'.join(re.escape(phrase) for phrase in self.phrases), re.IGNORECASE)
+        self.words_pattern = re.compile(r'|'.join(re.escape(word) for word in self.words), re.IGNORECASE)
+        self.url_pattern = re.compile(r'(https?://[^\s]+|www\.[^\s]+|\b\w+\.(com|org|net|io|gov|edu|info|de|uk|co|us|ca|biz|tv|me|site|app|shop|xyz)\b)', re.IGNORECASE)
         
     def _load_words_phrases(self):
         # Load suspicious words
         print("Loading common words...")
         with open("common_suspicious_words.txt", 'r') as file:
-            for word in file:
-                self.words.append(word.strip())
-        print("Loaded common words...")
+            self.words = [word.strip() for word in file]
+        print("Loaded common words.")
                 
         # Load suspicious phrases
         print("Loading common phrases...")
         with open("common_suspicious_phrases.txt", 'r') as file:
-            for line in file:
-                self.phrases.append(line)
-        print("Loaded common words...")
+            self.phrases = [line.strip() for line in file]
+        print("Loaded common phrases.")
                 
-    def _initialize_rules(self):
-        with ruleset("suspicious_message_detection"):
-            
-            # Rule for detecting common suspicious phrases
-            @when_all(m.text.matches('|'.join(self.phrases)))
-            def common_phrases_detected(c):
-                c.s['is_suspicious'] = True  # Set flag when suspicious phrase is detected
-            
-            # Rule for detecting URLs
-            @when_all(m.text.matches(r'https?://[^\s]+') |
-                        m.text.matches(r'www\.[^\s]+') |
-                        m.text.matches(r'\b\w+\.(com|org|net|io|gov|edu|info|de|uk|co|us|ca|biz|tv|me|site|app|shop|xyz)\b'))
-            def url_detected(c):
-                c.s['is_suspicious'] = True  # Set flag when URL is detected
-            
-            # Rule for detecting suspicious words
-            @when_all(m.text.matches('|'.join(self.words)))
-            def suspicious_words_detected(c):
-                c.s['is_suspicious'] = True  # Set flag when suspicious word is detected
+    def predict(self, messages):
+        # Handle both single message strings and pandas Series of messages
+        if isinstance(messages, str):
+            messages = [messages]
+        elif isinstance(messages, pd.Series):
+            messages = messages.tolist()
+        
+        # Process each message
+        results = {}
+        for message in messages:
+            results[message] = self._is_suspicious(message)
+        return results
     
-    def predict(self, message):
-        # If `message` is a single string, process it as a single message
-        if isinstance(message, str):
-            result = self.predict_single_message(message)
-            return { message: result }
+    def _is_suspicious(self, message_text):
+        # Check for suspicious phrases
+        if self.phrases_pattern.search(message_text):
+            return 'yes'
         
-        # If `message` is a pandas Series, apply `predict_single_message` on each row
-        elif isinstance(message, pd.Series):
-            return { msg: self.predict_single_message(msg) for msg in message}
-    
-    def predict_single_message(self, message_text):
-        # Use a dictionary to track the flag
-        state = {'text': message_text, 'is_suspicious': False}
+        # Check for suspicious URLs
+        if self.url_pattern.search(message_text):
+            return 'yes'
         
-        # Post the message to the rules engine
-        try:
-            post('suspicious_message_detection', state)
-        except MessageNotHandledException:
-            # If no rule matched, is_suspicious remains False
-            pass
+        # Check for suspicious words
+        if self.words_pattern.search(message_text):
+            return 'yes'
         
-        # Return whether the message was flagged as suspicious
-        return 'yes' if state['is_suspicious'] else 'no'
+        # Return 'no' if no suspicious patterns are matched
+        return 'no'
