@@ -35,10 +35,11 @@ class SuspiciousMessageEngine:
             messages = messages.tolist()
         
         # Process each message
-        results = {}
+        results = []
         for message in messages:
-            results[message] = self._is_suspicious(message)
-        return results
+            is_suspicious = self._is_suspicious(message)
+            results.append({'text':message, 'is_suspicious':is_suspicious})
+        return pd.DataFrame(results)
     
     def _is_suspicious(self, message_text):
         # Check for suspicious phrases
