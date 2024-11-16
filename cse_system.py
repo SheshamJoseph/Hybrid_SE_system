@@ -45,14 +45,16 @@ class CSESystem:
         result = []
         for message in messages:
             rule_result = self.engine.predict(message)
-            if rule_result == 'yes':
-                processed_message = self.preprocess_text([message])
-                model_prediction = self.model.predict([processed_message])[0]
-                label = 'yes' if np.argmax(model_prediction) == 1 else 'no'
-            else:
-                label = 'no'
-            
-            result.append(label)
+            if not rule_result.empty and 'prediction' in rule_result.columns:
+                rule_result_value = rule_result['is_suspicious'].iloc[0]
+                if rule_result_value == 'yes':
+                    processed_message = self.preprocess_text([message])
+                    model_prediction = self.model.predict([processed_message])[0]
+                    label = 'yes' if np.argmax(model_prediction) == 1 else 'no'
+                else:
+                    label = 'no'
+                
+                result.append(label)
             
         return result
     
