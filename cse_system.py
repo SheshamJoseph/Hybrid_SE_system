@@ -1,5 +1,8 @@
-from matplotlib import axis
 import pandas as pd
+import tensorflow as tf
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+import numpy as np
 
 class CSESystem:
     """
@@ -9,7 +12,7 @@ class CSESystem:
     message as suspicious, it is then passed to a machine learning model for further analysis. The model provides
     a more detailed classification, with results indicating whether a message is suspicious ('yes') or not ('no').
     """
-    def __init__(self, model, engine):
+    def __init__(self, model, engine, tokenizer, max_sequence_length):
         """
         Initializes the SuspiciousMessageSystem with a rule-based engine and a machine learning model.
         Args:
@@ -19,6 +22,8 @@ class CSESystem:
         """
         self.model = model
         self.engine = engine
+        self.tokenizer = tokenizer
+        self.max_length = max_sequence_length
         
     def predict(self, messages):
         """
@@ -41,12 +46,18 @@ class CSESystem:
         for message in messages:
             rule_result = self.engine.predict(message)
             if rule_result == 'yes':
-                model_prediction = self.model.predict([message])[0].argmax()
-                label = 'yes' if model_prediction == 1 else 'no'
+                processed_message = self.preprocess_text([message])
+                model_prediction = self.model.predict([processed_message])[0]
+                label = 'yes' if np.argmax(model_prediction) == 1 else 'no'
             else:
                 label = 'no'
             
             result.append(label)
             
         return result
-                
+    
+    
+    def preprocess_text(self, messages):
+        tokenized = self.tokenizer.texts_to_sequences(messages)
+        padded = pad_sequences(tokenized, maxlen=self.max_length, padding='post', truncating='post')
+        return padded
