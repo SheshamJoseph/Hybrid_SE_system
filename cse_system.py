@@ -45,7 +45,7 @@ class CSESystem:
         result = []
         for message in messages:
             rule_result = self.engine.predict(message)
-            if not rule_result.empty and 'prediction' in rule_result.columns:
+            if not rule_result.empty and 'is_suspicious' in rule_result.columns:
                 rule_result_value = rule_result['is_suspicious'].iloc[0]
                 if rule_result_value == 'yes':
                     processed_message = self.preprocess_text([message])
